@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>FuelHydrantMonitor 供油监控台</title>
+<style>
+body { font-family: "Microsoft YaHei", sans-serif; margin: 24px; background: #f4f6f8; color: #222; }
+h1 { font-size: 20px; }
+.panel { background: #fff; border: 1px solid #d9dee3; border-radius: 6px; padding: 12px 16px; margin-bottom: 16px; }
+.panel h2 { font-size: 15px; margin: 0 0 8px; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { border: 1px solid #e2e6ea; padding: 6px 8px; text-align: left; }
+th { background: #eef1f4; }
+button { padding: 6px 12px; margin-right: 8px; border: 1px solid #c6ccd2; background: #fff; border-radius: 4px; cursor: pointer; }
+select, input { padding: 5px 8px; margin-right: 8px; border: 1px solid #c6ccd2; border-radius: 4px; }
+</style>
+</head>
+<body>
+<h1>FuelHydrantMonitor 供油监控台</h1>
+<div class="panel">
+  <h2>供油控制</h2>
+  <button id="btnStart">开始供油</button>
+  <button id="btnStop">停止供油</button>
+  <select id="fuel">
+    <option value="JET-A1">JET-A1</option>
+    <option value="JET-A">JET-A</option>
+    <option value="AVGAS">AVGAS</option>
+  </select>
+  <button id="btnSwitch">切换油品</button>
+</div>
+<div class="panel">
+  <h2>供油状态</h2>
+  <table><tr><th>状态</th><th>油品</th></tr><tr><td id="supplyState">-</td><td id="supplyFuel">-</td></tr></table>
+</div>
+<div class="panel">
+  <h2>泵组</h2>
+  <table id="pumps"><tr><th>编号</th><th>状态</th><th>模式</th></tr></table>
+</div>
+<div class="panel">
+  <h2>加油栓</h2>
+  <table id="hydrants"><tr><th>编号</th><th>压力</th><th>流量</th><th>泄漏</th></tr></table>
+</div>
+<div class="panel">
+  <h2>告警</h2>
+  <table id="alarms"><tr><th>编号</th><th>类型</th><th>活动</th></tr></table>
+</div>
+<script>
+async function get(url) {
+  const resp = await fetch(url);
+  return resp.json();
+}
+async function post(url, body) {
+  const resp = await fetch(url, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body || {})});
+  return resp.json();
+}
+async function refresh() {
+  try {
+    const supply = await get("/api/v1/supply");
+    document.getElementById("supplyState").textContent = supply.state;
+    document.getElementById("supplyFuel").textContent = supply.fuel;
+    const pumps = await get("/api/v1/pumps");
+    const pt = document.getElementById("pumps");
+    pt.innerHTML = "<tr><th>编号</th><th>状态</th><th>模式</th></tr>";
+    for (const p of pumps.pumps) {
+      pt.innerHTML += `<tr><td>${p.id}</td><td>${p.state}</td><td>${p.mode}</td></tr>`;
+    }
+    const hydrants = await get("/api/v1/hydrants");
+    const ht = document.getElementById("hydrants");
+    ht.innerHTML = "<tr><th>编号</th><th>压力</th><th>流量</th><th>泄漏</th></tr>";
+    for (const h of hydrants) {
+      ht.innerHTML += `<tr><td>${h.ID}</td><td>${h.Pressure}</td><td>${h.Flow}</td><td>${h.Leaking}</td></tr>`;
+    }
+    const alarms = await get("/api/v1/alarms");
+    const at = document.getElementById("alarms");
+    at.innerHTML = "<tr><th>编号</th><th>类型</th><th>活动</th></tr>";
+    for (const a of alarms) {
+      at.innerHTML += `<tr><td>${a.ID}</td><td>${a.Kind}</td><td>${a.Active}</td></tr>`;
+    }
+  } catch (e) {
+    document.getElementById("supplyState").textContent = "error";
+  }
+}
+document.getElementById("btnStart").onclick = async () => { await post("/api/v1/supply/start"); refresh(); };
+document.getElementById("btnStop").onclick = async () => { await post("/api/v1/supply/stop"); refresh(); };
+document.getElementById("btnSwitch").onclick = async () => { await post("/api/v1/supply/switch", {fuel: document.getElementById("fuel").value}); refresh(); };
+refresh();
+setInterval(refresh, 3000);
+</script>
+</body>
+</html>
