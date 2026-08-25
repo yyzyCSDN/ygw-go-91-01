@@ -88,7 +88,10 @@ func (m *Monitor) HydrantPtr(id string) *Hydrant {
 func (m *Monitor) PressureOf(id string) (float64, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	h := m.hydrants[id]
+	h, ok := m.hydrants[id]
+	if !ok || h == nil {
+		return 0, false
+	}
 	return h.pressure, true
 }
 
