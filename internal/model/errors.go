@@ -9,4 +9,5 @@ var (
 	ErrPressureUnstable = errors.New("pressure not stable")
 	ErrInterlockLocked  = errors.New("interlock locked")
 	ErrRestoreFailed    = errors.New("restore writeback failed")
+	ErrManualOverride   = errors.New("manual override: auto supply suspended")
 )

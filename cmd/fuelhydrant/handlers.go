@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -45,6 +46,14 @@ func (s *service) handleSupply(w http.ResponseWriter, r *http.Request) {
 
 func (s *service) handleSupplyStart(w http.ResponseWriter, r *http.Request) {
 	if err := s.supply.Start(); err != nil {
+		if errors.Is(err, model.ErrManualOverride) {
+			writeJSON(w, http.StatusConflict, map[string]any{
+				"error":   err.Error(),
+				"manual":  s.group.IsManual(),
+				"hint":    "manual override active; auto supply yields until operator returns to auto",
+			})
+			return
+		}
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}
@@ -68,6 +77,14 @@ func (s *service) handleSupplySwitch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.supply.SwitchFuel(model.FuelType(body.Fuel)); err != nil {
+		if errors.Is(err, model.ErrManualOverride) {
+			writeJSON(w, http.StatusConflict, map[string]any{
+				"error":  err.Error(),
+				"manual": s.group.IsManual(),
+				"hint":   "manual override active; fuel re-dispatch yields until operator returns to auto",
+			})
+			return
+		}
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}

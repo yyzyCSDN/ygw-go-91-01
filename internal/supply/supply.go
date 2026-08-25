@@ -71,6 +71,13 @@ func (c *Coordinator) Start() error {
 		c.mu.Unlock()
 		return fmt.Errorf("supply not idle: %s", c.state)
 	}
+	// Yield to the operator: while a pump is under manual control, the
+	// automatic supply logic stays out of the way instead of overwriting a
+	// hand-started pump.
+	if !c.AutoAllowed() {
+		c.mu.Unlock()
+		return model.ErrManualOverride
+	}
 	c.state = model.SupplyPressurizing
 	c.mu.Unlock()
 
@@ -102,6 +109,9 @@ func (c *Coordinator) Stop() error {
 	c.state = model.SupplyStopping
 	c.mu.Unlock()
 
+	// StopAll yields to manually controlled pumps, so stopping the automatic
+	// supply never shuts a hand-started pump off; only StopAllForced (used by
+	// safety interlocks) overrides manual control.
 	if err := c.group.StopAll(); err != nil {
 		c.mu.Lock()
 		c.state = model.SupplySupplying
@@ -119,6 +129,13 @@ func (c *Coordinator) SwitchFuel(target model.FuelType) error {
 	if c.state != model.SupplyIdle && c.state != model.SupplyStopping {
 		c.mu.Unlock()
 		return fmt.Errorf("cannot switch fuel while %s", c.state)
+	}
+	// A fuel switch re-dispatches the pump group; while the operator holds a
+	// pump in manual mode the automatic logic must yield rather than overwrite
+	// the operator's intent.
+	if !c.AutoAllowed() {
+		c.mu.Unlock()
+		return model.ErrManualOverride
 	}
 	current := c.fuel
 	c.mu.Unlock()

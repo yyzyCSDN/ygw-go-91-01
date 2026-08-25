@@ -36,7 +36,7 @@ func newService(dir string) *service {
 	leakDetector.SetWriteback(func(id string) error { return journal.Append("leak-restore", id) })
 
 	group := pump.NewGroup()
-	leakDetector.SetStopPumps(func() error { return group.StopAll() })
+	leakDetector.SetStopPumps(func() error { return group.StopAllForced() })
 
 	for _, id := range []string{"pump-1", "pump-2"} {
 		p := pump.NewPump(id, pump.NewMotor(), alarmManager)
