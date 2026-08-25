@@ -62,6 +62,12 @@ func (s *State) Begin(from, to model.FuelType, drainConfirm func() bool, timeout
 	for {
 		select {
 		case <-ctx.Done():
+			// Drain confirmation timed out: cancel the wait and reset the
+			// switch to idle so it can be retried instead of staying stuck
+			// in the draining state.
+			s.mu.Lock()
+			s.state = model.SwitchIdle
+			s.mu.Unlock()
 			return model.ErrSwitchTimeout
 		case <-ticker.C:
 			if drainConfirm() {

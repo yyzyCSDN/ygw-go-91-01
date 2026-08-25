@@ -131,9 +131,16 @@ func (c *Coordinator) SwitchFuel(target model.FuelType) error {
 	if !target.Valid() {
 		return fmt.Errorf("invalid fuel type %q", target)
 	}
-	_ = c.switcher.Begin(current, target, c.drainDone, 15*time.Second)
+	// Begin blocks until drain is confirmed or times out. On timeout it
+	// resets itself to idle, so we must abort the switch here rather than
+	// dispatching the new fuel and recording a bogus flush cycle.
+	if err := c.switcher.Begin(current, target, c.drainDone, 15*time.Second); err != nil {
+		return err
+	}
 	c.dispatchFuelLocked(target)
-	_ = c.switcher.Complete()
+	if err := c.switcher.Complete(); err != nil {
+		return err
+	}
 	c.flush.RecordCycle(target)
 	return nil
 }
